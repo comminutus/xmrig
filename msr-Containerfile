@@ -1,0 +1,82 @@
+########################################################################################################################
+# Configuration
+########################################################################################################################
+# Core Config
+ARG repo_tag=v6.22.0
+
+# Set to false if you want to build the image and allow 1% donation to xmrig
+ARG disable_donation=true
+
+# Defaults
+ARG build_dir=/tmp/build
+
+########################################################################################################################
+# Build Image
+########################################################################################################################
+FROM cgr.dev/chainguard/wolfi-base as build
+ARG build_dir disable_donation repo_tag
+
+# Add packages necessary for build
+#RUN apk add autoconf automake build-base cmake gcc git hwloc hwloc-dev libtool libuv libuv-dev make openssl-dev
+RUN apk add autoconf automake build-base cmake gcc git libtool make openssl-dev wget
+
+# Download source
+WORKDIR $build_dir
+RUN git clone --recursive https://github.com/xmrig/xmrig.git source
+WORKDIR $build_dir/source
+RUN git checkout $repo_tag
+RUN git submodule sync
+RUN git submodule update --init --force
+
+# Disable 1% donation
+RUN $disable_donation                                                                               && \
+    sed -i 's/DonateLevel.*$/DonateLevel = 0;/g'                src/donate.h                        && \
+    sed -i 's/"donate-level".*$/"donate-level": 0,/g'           src/config.json                     && \
+    sed -i 's/"donate-over-proxy".*$/"donate-over-proxy": 0,/g' src/config.json                     && \
+    sed -i 's/"donate-level".*$/"donate-level": 0,/g'           src/core/config/Config_default.h    && \
+    sed -i 's/"donate-over-proxy".*$/"donate-over-proxy": 0,/g' src/core/config/Config_default.h
+
+# Build dependencies
+WORKDIR $build_dir/source/scripts
+RUN ./build_deps.sh
+
+# Build xmrig
+WORKDIR $build_dir/source
+RUN find $build_dir/source/scripts/build -type d -name 'hwloc*' -maxdepth 1 > $build_dir/hwloc.txt
+RUN find $build_dir/source/scripts/build -type d -name 'libuv*' -maxdepth 1 > $build_dir/libuv.txt
+RUN cmake -DBUILD_STATIC=ON                                         \
+    -DHWLOC_INCLUDE_DIR=$(cat $build_dir/hwloc.txt)/include         \
+    -DHWLOC_LIBRARY=$build_dir/source/scripts/deps/lib/libhwloc.a   \
+    -DUV_INCLUDE_DIR=$(cat $build_dir/libuv.txt)/include            \
+    -DUV_LIBRARY=$build_dir/source/scripts/deps/lib/libuv.a .
+RUN make -j$(nproc)
+
+# Build MSR mod
+WORKDIR $build_dir
+RUN git clone https://github.com/intel/msr-tools.git
+WORKDIR $build_dir/msr-tools
+RUN ./autogen.sh
+RUN make
+
+
+########################################################################################################################
+# Final Image
+########################################################################################################################
+FROM cgr.dev/chainguard/busybox as final
+ARG build_dir
+
+# MSR requires root
+USER root
+WORKDIR /root
+
+# Install files
+COPY msr-entrypoint.sh                                          entrypoint.sh
+COPY LICENSE                                                    /usr/share/licenses/xmrig/
+COPY --from=build $build_dir/source/LICENSE                     /usr/share/licenses/xmrig/XMRIG_LICENSE
+COPY --from=build $build_dir/source/xmrig                       /usr/local/bin/
+COPY --from=build $build_dir/source/scripts/randomx_boost.sh    /usr/local/bin/
+COPY --from=build $build_dir/source/src/config.json             /root/.config/xmrig.json
+COPY --from=build $build_dir/msr-tools/wrmsr                    /usr/local/bin
+
+# Run entrypoint
+ENTRYPOINT ["/root/entrypoint.sh"]

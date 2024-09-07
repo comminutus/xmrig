@@ -1,0 +1,81 @@
+#########################################################################################
+# Configuration
+########################################################################################################################
+# Core Config
+ARG xmrig_version=6.22.0
+
+# Defaults
+ARG build_dir=/tmp/build
+ARG config_dir=$build_dir/config
+ARG dist_dir=$build_dir/dist
+ARG license_dir=$build_dir/licenses
+
+
+########################################################################################################################
+# Build Image
+########################################################################################################################
+FROM cgr.dev/chainguard/wolfi-base:latest as build
+ARG build_dir config_dir dist_dir license_dir xmrig_version
+ARG base_archive_url=https://github.com/xmrig/xmrig/releases/download/v${xmrig_version}
+ARG xmrig_license_url=https://github.com/xmrig/xmrig/blob/master/LICENSE
+
+# Options for tools
+ARG build_packages='gpg gpg-agent wget'
+ARG gpg='gpg --batch'
+ARG wget='wget -q'
+
+# Copy assets
+WORKDIR $build_dir
+COPY xmrig.asc .
+COPY LICENSE $license_dir/
+
+# Install build packages
+RUN apk add $build_packages
+
+# Setup metadata about archive
+RUN set -ex                                                         && \
+  platform="$(uname -a | awk '{print tolower($1)}')"                && \
+  echo "$platform" > platform.txt                                   && \
+  arch="$(uname -m | sed 's/x86_64/x64/g')"                         && \
+  echo "$arch" > arch.txt                                           && \
+  archive="xmrig-${xmrig_version}-$platform-static-$arch.tar.gz"    && \
+  echo "$archive" > archive.txt
+
+# Download SHA-256 hashes, signatures, and archive
+RUN $wget $base_archive_url/SHA256SUMS.sig $base_archive_url/SHA256SUMS $base_archive_url/$(cat archive.txt)
+
+# Verify SHA256 archive hashes and arhive itself
+RUN $gpg --import xmrig.asc
+RUN $gpg --verify SHA256SUMS.sig SHA256SUMS
+RUN grep "$(cat archive.txt)" SHA256SUMS| sha256sum -c
+
+# Extract archive
+RUN mkdir -p "$dist_dir" "$config_dir" archive
+RUN tar -x --strip-components 1 -C archive -f "$(cat archive.txt)"
+
+# Setup files
+RUN cp archive/xmrig "$dist_dir"
+RUN sed -i 's/"donate-level".*$/"donate-level": 0,/g'           archive/config.json && \
+    sed -i 's/"donate-over-proxy".*$/"donate-over-proxy": 0,/g' archive/config.json
+RUN cp archive/config.json "$config_dir"/xmrig.json
+
+# Download license file
+RUN $wget -O XMRIG_LICENSE -P $license_dir $xmrig_license_url
+
+
+########################################################################################################################
+# Final image
+########################################################################################################################
+FROM cgr.dev/chainguard/static as final
+ARG dist_dir config_dir license_dir
+
+# Install binaries
+COPY --from=build $dist_dir /usr/local/bin
+COPY --from=build $license_dir /usr/local/share/licenses/xmrig
+COPY --from=build --chown=65532:65532 $config_dir /home/nonroot/.config/
+
+# Set working directory to /home/nonroot
+WORKDIR /home/nonroot
+
+# Run entrypoint
+ENTRYPOINT ["/usr/local/bin/xmrig"]
