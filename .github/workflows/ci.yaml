@@ -175,6 +175,7 @@ jobs:
       - name: Upload Trivy scan results for vanilla to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         with:
+          category: vanilla
           sarif_file: trivy-results-vanilla.sarif
 
       - name: Run Trivy vulnerability scanner against msr image
@@ -189,6 +190,7 @@ jobs:
       - name: Upload Trivy scan results for msr to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         with:
+          category: msr
           sarif_file: trivy-results-msr.sarif
 
 
