@@ -86,7 +86,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
-            latest=off
+            latest=false
             suffix=-msr
           tags: |
             type=semver,pattern={{version}},value=msr
