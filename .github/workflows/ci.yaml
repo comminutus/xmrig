@@ -67,6 +67,7 @@ jobs:
             latest=auto
             suffix=-vanilla
           tags: |
+            type=semver,pattern={{version}},value=vanilla
             type=semver,pattern={{version}},prefix=v
             type=semver,pattern={{major}}.{{minor}},prefix=v
             type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }},prefix=v
@@ -85,9 +86,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
-            latest=auto
+            latest=off
             suffix=-msr
           tags: |
+            type=semver,pattern={{version}},value=msr
             type=semver,pattern={{version}},prefix=v
             type=semver,pattern={{major}}.{{minor}},prefix=v
             type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }},prefix=v
