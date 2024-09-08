@@ -58,14 +58,14 @@ jobs:
 
       # Extract metadata (tags, labels) for vanilla
       # https://github.com/docker/metadata-action
-      - name: Extract container image metadata
+      - name: Extract vanilla container image metadata
         id: meta-vanilla
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
             latest=auto
-            suffix=vanilla
+            suffix=-vanilla
           tags: |
             type=semver,pattern={{version}},prefix=v
             type=semver,pattern={{major}}.{{minor}},prefix=v
@@ -79,14 +79,14 @@ jobs:
 
       # Extract metadata (tags, labels) for msr
       # https://github.com/docker/metadata-action
-      - name: Extract container image metadata
+      - name: Extract msr container image metadata
         id: meta-msr
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
-            latest=false
-            suffix=msr
+            latest=auto
+            suffix=-msr
           tags: |
             type=semver,pattern={{version}},prefix=v
             type=semver,pattern={{major}}.{{minor}},prefix=v
@@ -132,7 +132,7 @@ jobs:
       # repository is public to avoid leaking data.  If you would like to publish
       # transparency data even for private images, pass --force to cosign below.
       # https://github.com/sigstore/cosign
-      - name: Sign the published container image
+      - name: Sign the vanilla container image
         if: ${{ github.event_name != 'pull_request' }}
         env:
           # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
@@ -147,7 +147,7 @@ jobs:
       # repository is public to avoid leaking data.  If you would like to publish
       # transparency data even for private images, pass --force to cosign below.
       # https://github.com/sigstore/cosign
-      - name: Sign the published container image
+      - name: Sign the msr container image
         if: ${{ github.event_name != 'pull_request' }}
         env:
           # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
