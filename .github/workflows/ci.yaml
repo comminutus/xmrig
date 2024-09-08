@@ -70,7 +70,7 @@ jobs:
             type=semver,pattern={{version}},prefix=v
             type=semver,pattern={{major}}.{{minor}},prefix=v
             type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }},prefix=v
-            type=raw,value=${{ github.sha }}-vanilla
+            type=raw,value=${{ github.sha }}
             type=edge,branch=master
             type=schedule
             type=ref,event=branch
@@ -91,7 +91,7 @@ jobs:
             type=semver,pattern={{version}},prefix=v
             type=semver,pattern={{major}}.{{minor}},prefix=v
             type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }},prefix=v
-            type=raw,value=${{ github.sha }}-msr
+            type=raw,value=${{ github.sha }}
             type=edge,branch=master
             type=schedule
             type=ref,event=branch
@@ -190,7 +190,6 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: trivy-results-msr.sarif
-
 
 
   tagged-release:
